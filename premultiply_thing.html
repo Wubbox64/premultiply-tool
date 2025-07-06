@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wubbox64's crappy premultiply tool!</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      background: url('images/dum_background.png') no-repeat center center fixed;
+      background-size: cover;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    #controls {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.7);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.8);
+      z-index: 10;
+      text-align: center;
+      color: #fff;
+    }
+    #title {
+      font-size: 18px;
+      margin-bottom: 10px;
+      color: #90ee90;
+    }
+    #preview {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 10px;
+      color: #fff;
+    }
+    #preview img {
+      max-width: 32px;
+      max-height: 32px;
+      border-radius: 4px;
+      margin-bottom: 4px;
+    }
+    #preview span {
+      font-size: 14px;
+      color: #fff;
+    }
+    #fileInput {
+      display: none;
+    }
+    #fileLabel {
+      display: block;
+      margin: 8px auto;
+      width: 250px;
+      padding: 12px;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+    }
+    #controls button {
+      display: block;
+      margin: 8px auto;
+      width: 250px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+    }
+    #controls button:hover {
+      background: linear-gradient(135deg, #5a73d9, #935fd2);
+      transform: scale(1.08);
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #90ee90;
+    }
+    canvas {
+      display: none;
+    }
+    #mr-rocky {
+      position: fixed;
+      right: -20px;
+      bottom: 50%;
+      transform: translateY(50%) rotate(-90deg);
+      max-width: 50px;
+      z-index: 5;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <div id="title">Wubbox64's crappy premultiply tool!</div>
+    <div id="preview"></div>
+    <label id="fileLabel" for="fileInput">Choose File</label>
+    <input type="file" id="fileInput" accept="image/*" />
+    <button onclick="processImage(true)">Premultiply Alpha!</button>
+    <button onclick="processImage(false)">Unpremultiply Alpha!</button>
+    <div id="status"></div>
+  </div>
+
+  <a href="what_have_you_done.html" target="_blank" title="stop">
+    <img id="mr-rocky" src="images/mr_rocky_woah.png" alt="" />
+  </a>
+
+  <canvas id="canvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const previewDiv = document.getElementById('preview');
+
+    let img = null;
+
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      img = new Image();
+      img.onload = () => {
+        updatePreview(url, file.name);
+      };
+      img.src = url;
+    });
+
+    function updatePreview(src, filename) {
+      previewDiv.innerHTML = `<img src="${src}" alt="preview"><span>${filename}</span>`;
+    }
+
+    function processImage(premultiply) {
+      if (!img) return;
+
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = img.width;
+      offCanvas.height = img.height;
+      const offCtx = offCanvas.getContext('2d');
+      offCtx.drawImage(img, 0, 0);
+
+      const imgData = offCtx.getImageData(0, 0, img.width, img.height);
+      const data = imgData.data;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const a = data[i + 3] / 255;
+        if (premultiply) {
+          data[i] = Math.round(r * a);
+          data[i + 1] = Math.round(g * a);
+          data[i + 2] = Math.round(b * a);
+        } else {
+          if (a > 0) {
+            data[i] = Math.min(255, Math.round(r / a));
+            data[i + 1] = Math.min(255, Math.round(g / a));
+            data[i + 2] = Math.min(255, Math.round(b / a));
+          }
+        }
+      }
+      offCtx.putImageData(imgData, 0, 0);
+
+      const link = document.createElement('a');
+      link.download = `image_${premultiply ? 'premultiplied' : 'unpremultiplied'}.png`;
+      link.href = offCanvas.toDataURL('image/png');
+      link.click();
+
+      statusDiv.textContent = `File ${premultiply ? 'premultiplied' : 'unpremultiplied'}!`;
+    }
+  </script>
+</body>
+</html>
